@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
@@ -46,26 +49,52 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusInternalServerError, "Couldn't find the thumbnail", err)
 		return
 	}
+	defer file.Close()
+
 	ct := header.Header.Get("Content-Type")
-	filecontents, err := io.ReadAll(file)
+	fileContents, err := io.ReadAll(file)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to read in the file", err)
 		return
 	}
+	splitContentType := strings.Split(ct, "/")
+	if len(splitContentType) < 2 {
+		respondWithError(w, http.StatusInternalServerError, "Invalid content type", nil)
+		return
+	}
+	fileExt := splitContentType[1]
+
 	meta, err := cfg.db.GetVideo(videoID)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "User does not own the video", err)
 		return
 	}
-	tn := thumbnail{
+	/*tn := thumbnail{
 		data:      filecontents,
 		mediaType: ct,
 	}
-	videoThumbnails[meta.ID] = tn
+	videoThumbnails[meta.ID] = tn*/
 
-	baseUrl := "http://localhost:" + cfg.port + "/api/"
+	baseUrl := "http://localhost:" + cfg.port
 	vUrl := baseUrl + "video/" + videoID.String()
-	thUrl := baseUrl + "thumbnails/" + videoID.String()
+
+	//thUrl := baseUrl + "thumbnails/" + videoID.String()
+	fileLocation := cfg.assetsRoot + "/" + videoID.String() + "." + fileExt
+	imgFile, err := os.Create(fileLocation)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create the image file", err)
+		return
+	}
+	defer imgFile.Close()
+	reader := bytes.NewReader(fileContents)
+	_, err = io.Copy(imgFile, reader)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to process the byte reader", err)
+		return
+	}
+
+	thUrl := baseUrl + "/" + cfg.assetsRoot + "/" + videoID.String() + "." + fileExt
+	fmt.Println(thUrl)
 	videoItem := database.Video{
 		ID:           meta.ID,
 		CreatedAt:    meta.CreatedAt,
@@ -83,6 +112,5 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusUnauthorized, "Update call failed", err)
 		return
 	}
-	fmt.Println(videoItem)
 	respondWithJSON(w, http.StatusOK, videoItem)
 }
