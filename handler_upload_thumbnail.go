@@ -94,7 +94,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 
 	thUrl := baseUrl + "/" + cfg.assetsRoot + "/" + videoID.String() + "." + fileExt
-	fmt.Println(thUrl)
 	videoItem := database.Video{
 		ID:           meta.ID,
 		CreatedAt:    meta.CreatedAt,
