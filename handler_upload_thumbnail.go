@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -79,7 +81,15 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	vUrl := baseUrl + "video/" + videoID.String()
 
 	//thUrl := baseUrl + "thumbnails/" + videoID.String()
-	fileLocation := cfg.assetsRoot + "/" + videoID.String() + "." + fileExt
+	thumbnailFilenameBuffer := make([]byte, 32)
+	_, err = rand.Read(thumbnailFilenameBuffer)
+	thumbnailFilename := base64.RawURLEncoding.EncodeToString(thumbnailFilenameBuffer)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to create thumbnail filename", err)
+		return
+	}
+	fileLocation := cfg.assetsRoot + "/" + string(thumbnailFilename) + "." + fileExt
 	imgFile, err := os.Create(fileLocation)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create the image file", err)
@@ -93,7 +103,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	thUrl := baseUrl + "/" + cfg.assetsRoot + "/" + videoID.String() + "." + fileExt
+	thUrl := baseUrl + "/" + cfg.assetsRoot + "/" + string(thumbnailFilename) + "." + fileExt
 	videoItem := database.Video{
 		ID:           meta.ID,
 		CreatedAt:    meta.CreatedAt,
