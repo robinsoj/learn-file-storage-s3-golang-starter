@@ -90,12 +90,12 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 
 	var filenamePrefix string
 	if ratio == "16:9" {
-		filenamePrefix = "/landscape/"
+		filenamePrefix = "landscape"
 	} else if ratio == "9:16" {
-		filenamePrefix = "/portrait/"
+		filenamePrefix = "portrait"
 	} else {
-		filenamePrefix = "/other/"
-		filenamePrefix = "/portrait/"
+		filenamePrefix = "other"
+		//filenamePrefix = "portrait"
 	}
 
 	key := getAssetPath(mediaType)
@@ -118,7 +118,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	_, err = cfg.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket:      aws.String(cfg.s3Bucket),
 		Key:         aws.String(key),
-		Body:        processedFile,
+		Body:        tempFile,
 		ContentType: aws.String(mediaType),
 	})
 	if err != nil {
@@ -126,6 +126,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	//url := fmt.Sprintf("%s,%s", cfg.s3Bucket, key) //cfg.getObjectURL(key)
 	url := cfg.getObjectURL(key)
 	video.VideoURL = &url
 	err = cfg.db.UpdateVideo(video)
@@ -133,6 +134,11 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
 		return
 	}
+	/*video, err = cfg.dbVideoToSignedVideo(video)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't generate presigned URL", err)
+		return
+	}*/
 
 	respondWithJSON(w, http.StatusOK, video)
 }
